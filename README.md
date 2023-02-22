@@ -3,17 +3,33 @@
 This repository contains the online appendix and supporting code for our paper "Investigating the Robustness of Counterfactual Learning to Rank Models".
 
 ## Online Appendix
+
+[comment]: <> (### The spider chart on MSLR)
+
+[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_spider_chart.png&#41;)
+
+[comment]: <> (### The ANOVA results on MSLR)
+
+[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_ANOVA_results.png&#41;)
+
+[comment]: <> (### The effect of production ranker on CLTR models on MSLR)
+
+[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_effect_of_production_ranker.png&#41;)
+
+[comment]: <> (### The effect of user simulation model on CLTR models on MSLR)
+
+[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_effect_of_user_simulation_model.png&#41;)
 ### The spider chart on MSLR
-![image](https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_spider_chart.png)
+![image](MSLR_spider_chart.png)
 
 ### The ANOVA results on MSLR
-![image](https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_ANOVA_results.png)
+![image](MSLR_ANOVA_results.png)
 
 ### The effect of production ranker on CLTR models on MSLR
-![image](https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_effect_of_production_ranker.png)
+![image](MSLR_effect_of_production_ranker.png)
 
 ### The effect of user simulation model on CLTR models on MSLR
-![image](https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_effect_of_user_simulation_model.png)
+![image](MSLR_effect_of_user_simulation_model.png)
 
 ## Repository Usage
 ### Get Started
