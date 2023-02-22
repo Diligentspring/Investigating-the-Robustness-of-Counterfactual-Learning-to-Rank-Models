@@ -3,9 +3,17 @@
 This repository contains the online appendix and supporting code for our paper "Investigating the Robustness of Counterfactual Learning to Rank Models".
 
 ## Online Appendix
-### The spider chart of MSLR
+### The spider chart on MSLR
+![image](https://github.com/Diligentspring/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models/blob/main/experimental_results_on_MSLR/MSLR_spider_chart.png)
 
-![image]()
+### The ANOVA results on MSLR
+![image](https://github.com/Diligentspring/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models/blob/main/experimental_results_on_MSLR/MSLR_ANOVA_results.png)
+
+### The effect of production ranker on CLTR models on MSLR
+![image](https://github.com/Diligentspring/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models/blob/main/experimental_results_on_MSLR/MSLR_effect_of_production_ranker.png)
+
+### The effect of user simulation model on CLTR models on MSLR
+![image](https://github.com/Diligentspring/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models/blob/main/experimental_results_on_MSLR/MSLR_effect_of_user_simulation_model.png)
 
 ## Repository Usage
 ### Get Started
