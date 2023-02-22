@@ -1,0 +1,10 @@
+torch
+six
+scipy
+autopep8
+pytest
+parameterized
+pytest-cov
+codecov
+numpy
+pandas
