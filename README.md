@@ -3,17 +3,16 @@
 This repository contains the online appendix and supporting code for our paper "Investigating the Robustness of Counterfactual Learning to Rank Models".
 
 ## Online Appendix
-Since the anonymous GitHub repo cannot display the pictures in README.md, please see the online appendix at [online_appendix.pdf](online_appendix.pdf).
-### The spider chart on MSLR
+### Figure_1 The spider chart on MSLR
 ![image](Figure_1.png)
 
-### The ANOVA results on MSLR
+### Table_1 The ANOVA results on MSLR
 ![image](Table_1.png)
 
-### The effect of production ranker on CLTR models on MSLR
+### Figure_2 The effect of production ranker on CLTR models on MSLR
 ![image](Figure_2.png)
 
-### The effect of user simulation model on CLTR models on MSLR
+### Table_2 The effect of user simulation model on CLTR models on MSLR
 ![image](Table_2.png)
 
 ## Repository Usage
