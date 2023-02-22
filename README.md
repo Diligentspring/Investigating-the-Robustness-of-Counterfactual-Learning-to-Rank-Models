@@ -3,22 +3,7 @@
 This repository contains the online appendix and supporting code for our paper "Investigating the Robustness of Counterfactual Learning to Rank Models".
 
 ## Online Appendix
-
-[comment]: <> (### The spider chart on MSLR)
-
-[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_spider_chart.png&#41;)
-
-[comment]: <> (### The ANOVA results on MSLR)
-
-[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_ANOVA_results.png&#41;)
-
-[comment]: <> (### The effect of production ranker on CLTR models on MSLR)
-
-[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_effect_of_production_ranker.png&#41;)
-
-[comment]: <> (### The effect of user simulation model on CLTR models on MSLR)
-
-[comment]: <> (![image]&#40;https://anonymous.4open.science/r/Investigating-the-Robustness-of-Counterfactual-Learning-to-Rank-Models-BF74/experimental_results_on_MSLR/MSLR_effect_of_user_simulation_model.png&#41;)
+Since the anonymous GitHub repo cannot display the pictures in README.md, please see the online appendix at [online_appendix.pdf](online_appendix.pdf).
 ### The spider chart on MSLR
 ![image](MSLR_spider_chart.png)
 
