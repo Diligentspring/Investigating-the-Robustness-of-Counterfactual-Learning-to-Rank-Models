@@ -11,7 +11,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import sys
 import time
 import copy
@@ -373,24 +373,34 @@ def test(exp_settings):
     for i in range(len(rerank_scores)):
         scores = rerank_scores[i]
         rerank_lists.append(sorted(range(len(scores)), key=lambda k: scores[k], reverse=True))
+
     # print(rerank_scores)
     # print(len(rerank_scores))
     # print(rerank_lists)
     # print(summary_list)
 
-    classify_dir = args.model_dir.strip('./').split('/')
+    # classify_dir = args.model_dir.strip('./').split('/')
+    #
+    # classify_file = open('classify_test/{}/{}/{}'.format(classify_dir[0], classify_dir[1], classify_dir[2]), 'w')
+    # for i in range(len(rerank_scores)):
+    #     for j in range(len(rerank_scores[i])):
+    #         classify_file.write(str(rerank_scores[i][j].item())+' ')
+    #     classify_file.write('\n')
+    # classify_file.close()
 
-    classify_file = open('classify_test/{}/{}/{}'.format(classify_dir[0], classify_dir[1], classify_dir[2]), 'w')
+    classify_dir = args.model_dir + '_classify'
+
+    classify_file = open(classify_dir, 'w')
     for i in range(len(rerank_scores)):
         for j in range(len(rerank_scores[i])):
             classify_file.write(str(rerank_scores[i][j].item())+' ')
         classify_file.write('\n')
     classify_file.close()
 
-    ndcg_file = open('ndcg_test/{}/{}/{}'.format(classify_dir[0], classify_dir[1], classify_dir[2]), 'w')
-    for i in range(len(summary_list)):
-        ndcg_file.write(str(summary_list[i])+'\n')
-    ndcg_file.close()
+    # ndcg_file = open('ndcg_test/{}/{}/{}'.format(classify_dir[0], classify_dir[1], classify_dir[2]), 'w')
+    # for i in range(len(summary_list)):
+    #     ndcg_file.write(str(summary_list[i])+'\n')
+    # ndcg_file.close()
 
     return
 

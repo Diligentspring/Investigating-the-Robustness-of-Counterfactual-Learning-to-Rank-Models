@@ -6,12 +6,12 @@ random.seed(1)
 
 initlist_path = sys.argv[1]
 w= float(sys.argv[2])
-# beta = float(sys.argv[3])
 g = float(sys.argv[3])
 eta = float(sys.argv[4])
+ULTRA_DATA_PATH = sys.argv[5]
 
-train_init_file = open("train.init_list", "r", encoding="utf-8")
-label_file = open("train.labels", "r", encoding="utf-8")
+train_init_file = open(ULTRA_DATA_PATH+"train.init_list", "r", encoding="utf-8")
+label_file = open(ULTRA_DATA_PATH+"train.labels", "r", encoding="utf-8")
 qid_dic = {}
 label_dic = {}
 for line in train_init_file:

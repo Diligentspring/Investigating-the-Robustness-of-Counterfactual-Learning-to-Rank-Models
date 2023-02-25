@@ -4,11 +4,13 @@ import random
 random.seed(1)
 
 initlist_path = sys.argv[1]
+
 beta = float(sys.argv[2])
 eta = float(sys.argv[3])
+ULTRA_DATA_PATH = sys.argv[4]
 
-train_init_file = open("train.init_list", "r", encoding="utf-8")
-label_file = open("train.labels", "r", encoding="utf-8")
+train_init_file = open(ULTRA_DATA_PATH+"train.init_list", "r", encoding="utf-8")
+label_file = open(ULTRA_DATA_PATH+"train.labels", "r", encoding="utf-8")
 
 qid_dic = {}
 label_dic = {}

@@ -33,6 +33,11 @@ To convert the data to ULTRA form:
 python convert_to_ULTRA.py [DATA_PATH] [feature_lenth] [OUTPUT_PATH]
 ```
 
+### To utilize Plackett-Luce model to randomly generate initial ranking lists based on the relevance scores given by the ranker (e.g. 1% DNN)
+```
+python generate_init_list.py [ULTRA_DATA_PATH] [CLASSIFY_PATH] [weight] [OUTPUT_PATH]
+```
+
 ### To generate click data for initial ranking lists
 ```
 python generate_PBM.py [INITLIST_PATH] [eta] [ULTRA_DATA_PATH]
@@ -43,9 +48,17 @@ python generate_CBCM.py [INITLIST_PATH] [w] [g] [eta] [ULTRA_DATA_PATH]
 ### To train and evaluate CLTR models
 This project reproduces the counterfactual learning to rank models based on [ULTRA_pytorch](https://github.com/ULTR-Community/ULTRA_pytorch). Here we give the simple instructions to train a CLTR model. Please see [ULTRA_pytorch](https://github.com/ULTR-Community/ULTRA_pytorch) for more details about this framework.
 
-For example, to train a DLA-PBM model:
+For example, to train a naive model (click baseline):
+```
+python main.py --CLTR_model NaiveAlgorithm --data_dir ./tests/data/ --train_data_prefix train --model_dir ./tests/model/clicksoftmax_256_0.1 --setting_file ./tests/test_settings/naive.json --batch_size 256 --ln 0.1 --seed 1 --max_train_iteration 10000
+```
+To train a DLA-PBM model:
 ```
 python main.py --CLTR_model DLA_PBM --data_dir ./tests/data/ --train_data_prefix train --model_dir ./tests/model/DLAPBM_256_0.1 --setting_file ./tests/test_settings/dla.json --batch_size 256 --ln 0.1 --seed 1 --max_train_iteration 10000
+```
+To train an IPS-PBM model:
+```
+python main.py --CLTR_model IPS_PBM --data_dir ./tests/data/ --train_data_prefix train --model_dir ./tests/model/IPSPBM_256_0.1 --setting_file ./tests/test_settings/ips.json --propensity_file_path ./tests/data/train/propensity.txt --batch_size 256 --ln 0.1 --seed 1 --max_train_iteration 10000
 ```
 To evaluate a CLTR model:
 ```
