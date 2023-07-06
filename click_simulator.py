@@ -81,9 +81,8 @@ class PositionBiasedModel(ClickModel):
         click_p = self.click_prob[relevance_label if relevance_label < len(
             self.click_prob) else -1]
         if random.random() < self.epsilon:
-            click = 1.0
-        else:
-            click = 1.0 if random.random() < exam_p * click_p else 0.0
+            click_p = 1.0
+        click = 1.0 if random.random() < exam_p * click_p else 0.0
         return click
 
     def getExamProb(self, rank):
@@ -132,9 +131,8 @@ class DependentClickModel(ClickModel):
         click_p = self.click_prob[relevance_label if relevance_label < len(
             self.click_prob) else -1]
         if random.random() < self.epsilon:
-            click = 1.0
-        else:
-            click = 1.0 if random.random() < click_p else 0.0
+            click_p = 1.0
+        click = 1.0 if random.random() < exam_p * click_p else 0.0
         return click, cont_p
 
     def getExamProb(self, rank):
