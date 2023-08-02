@@ -61,7 +61,7 @@ To train a DLA-PBM model:
 ```
 python main.py --CLTR_model DLA_PBM --data_dir ./tests/data/ --train_data_prefix train --model_dir ./tests/model/DLAPBM_256_0.1 --setting_file ./tests/test_settings/dla.json --batch_size 256 --ln 0.1 --seed 1 --max_train_iteration 10000
 ```
-To train an IPS-PBM model:
+To train an IPS-PBM model: First, estimate the \eta parameters of the PBM click model (either using EM algorithm or via a separate randomization experiment) and store them into a propensity file. In our paper, we used the [Pyclick](https://github.com/markovi/PyClick) library to train a PBM click model via EM algorithm. Then, run the following code:
 ```
 python main.py --CLTR_model IPS_PBM --data_dir ./tests/data/ --train_data_prefix train --model_dir ./tests/model/IPSPBM_256_0.1 --setting_file ./tests/test_settings/ips.json --propensity_file_path ./tests/data/train/propensity.txt --batch_size 256 --ln 0.1 --seed 1 --max_train_iteration 10000
 ```
