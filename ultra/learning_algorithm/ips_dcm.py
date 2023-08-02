@@ -99,6 +99,12 @@ class IPS_DCM(BaseAlgorithm):
             self.optimizer_func = torch.optim.SGD(
                 self.model.parameters(), lr=self.learning_rate)
 
+        pw_file = open(
+            self.propensity_file_path, 'r')
+        self.conts = pw_file.readline().strip('\n').split(' ')
+        self.conts = [max(float(cont), 0.01) for cont in self.conts]
+        pw_file.close()
+
     def train(self, input_feed):
         """Run a step of the model feeding the given inputs for training process.
 
@@ -128,25 +134,17 @@ class IPS_DCM(BaseAlgorithm):
             # for l in range(self.rank_list_size):
             #     input_feed["propensity_weights{0}".format(l)].append(
             #         pw_list[l])
-            pw_file = open(
-                self.propensity_file_path, 'r')
-
-            conts = pw_file.readline().strip('\n').split(' ')
-            conts = [max(float(cont), 0.01) for cont in conts]
-            # print(conts)
 
             pw_list = []
             cont = 1
             for i in range(self.rank_list_size):
                 if int(click_list[i]) == 1:
                     pw_list.append(1 / float(cont))
-                    cont = conts[i]
+                    cont = self.conts[i]
                 else:
                     pw_list.append(0)
 
             # print(pw_list)
-
-            pw_file.close()
 
             pw.append(pw_list)
 

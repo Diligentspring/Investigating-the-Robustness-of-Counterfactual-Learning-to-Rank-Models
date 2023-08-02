@@ -99,6 +99,18 @@ class IPS_PBM(BaseAlgorithm):
             self.optimizer_func = torch.optim.SGD(
                 self.model.parameters(), lr=self.learning_rate)
 
+        pw_file = open(
+            self.propensity_file_path, 'r')
+        self.exams = pw_file.readline().strip('\n').split(' ')
+        pw_file.close()
+        self.exams = [max(float(exam), 0.01) for exam in self.exams]
+        if self.rank_list_size > len(self.exams):
+            for _ in range(self.rank_list_size - len(self.exams)):
+                self.exams.append(exams[-1])
+        self.exams = self.exams[:self.rank_list_size]
+        self.pw_list = [1.0 / float(exam) for exam in self.exams]
+
+
     def train(self, input_feed):
         """Run a step of the model feeding the given inputs for training process.
 
@@ -113,31 +125,17 @@ class IPS_PBM(BaseAlgorithm):
         # Output feed: depends on whether we do a backward step or not.
         # compute propensity weights for the input data.
         self.global_step += 1
-        pw = []
+
         self.model.train()
         # for l in range(self.rank_list_size):
         #     input_feed["propensity_weights{0}".format(l)] = []
-
+        pw = []
         for i in range(len(input_feed[self.labels_name[0]])):
             # click_list = [input_feed[self.labels_name[l]][i]
             #               for l in range(self.rank_list_size)]
             # pw_list = self.propensity_estimator.getPropensityForOneList(
             #     click_list)
-
-            pw_file = open(
-                self.propensity_file_path, 'r')
-
-            exams = pw_file.readline().strip('\n').split(' ')
-            exams = [max(float(exam), 0.01) for exam in exams]
-            pw_list = [1.0 / float(exam) for exam in exams]
-
-            pw_file.close()
-
-            pw.append(pw_list)
-
-            # for l in range(self.rank_list_size):
-            #     input_feed["propensity_weights{0}".format(l)].append(
-            #         pw_list[l])
+            pw.append(self.pw_list)
 
         self.create_input_feed(input_feed, self.rank_list_size)
 
