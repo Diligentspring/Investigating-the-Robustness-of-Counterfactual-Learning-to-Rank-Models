@@ -1,19 +1,24 @@
 # Investigating the Robustness of Counterfactual Learning to Rank Models
 
-This repository contains the online appendix and supporting code for our paper "Investigating the Robustness of Counterfactual Learning to Rank Models".
+This repository contains the supporting code for our paper "Investigating the Robustness of Counterfactual Learning to Rank Models".
 
-## Online Appendix
-### Figure_1 The spider chart on MSLR
-![image](Figure_1.png)
+[comment]: <> (## Online Appendix)
 
-### Table_1 The ANOVA results on MSLR
-![image](Table_1.png)
+[comment]: <> (### Figure_1 The spider chart on MSLR)
 
-### Figure_2 The effect of production ranker on CLTR models on MSLR
-![image](Figure_2.png)
+[comment]: <> (![image]&#40;Figure_1.png&#41;)
 
-### Table_2 The effect of user simulation model on CLTR models on MSLR
-![image](Table_2.png)
+[comment]: <> (### Table_1 The ANOVA results on MSLR)
+
+[comment]: <> (![image]&#40;Table_1.png&#41;)
+
+[comment]: <> (### Figure_2 The effect of production ranker on CLTR models on MSLR)
+
+[comment]: <> (![image]&#40;Figure_2.png&#41;)
+
+[comment]: <> (### Table_2 The effect of user simulation model on CLTR models on MSLR)
+
+[comment]: <> (![image]&#40;Table_2.png&#41;)
 
 ## Repository Usage
 ### Get Started
