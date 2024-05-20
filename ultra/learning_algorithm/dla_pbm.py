@@ -19,10 +19,21 @@ import ultra.utils
 
 import torch.autograd
 
-
 def sigmoid_prob(logits):
     return torch.sigmoid(logits - torch.mean(logits, -1, keepdim=True))
 
+def propensity_loss(output, labels, propensity_weights=None):
+        if propensity_weights is None:
+            propensity_weights = torch.ones_like(labels)
+        weighted_labels = (labels + 0.0000001) * propensity_weights
+        label_dis = weighted_labels / \
+            torch.sum(weighted_labels, 1, keepdim=True)
+        label_dis = torch.nan_to_num(label_dis)
+        # output_rem_nan = torch.nan_to_num(output)
+        # loss = softmax_cross_entropy_with_logits(
+        #     logits = output, labels = label_dis)* torch.sum(weighted_labels, 1)
+        loss = torch.sum(- label_dis * output, -1) * torch.sum(weighted_labels, 1)
+        return torch.sum(loss) / torch.sum(weighted_labels)
 
 class DenoisingNet(nn.Module):
     def __init__(self, input_vec_size):
@@ -48,8 +59,7 @@ class DenoisingNet(nn.Module):
                 self.propensity_net(
                     torch.cat(
                         click_feature, 1)))
-        return torch.cat(output_propensity_list, 1)  # 256*10，有负数
-
+        return torch.cat(output_propensity_list, 1) #256*10，有负数
 
 class DLA_PBM(BaseAlgorithm):
     """The Dual Learning Algorithm for unbiased learning to rank.
@@ -101,21 +111,16 @@ class DLA_PBM(BaseAlgorithm):
             self.rank_list_size = self.exp_settings['selection_bias_cutoff']
             #self.propensity_model = DenoisingNet(self.rank_list_size)
 
-            self.propensity_para = [torch.tensor(
-                [1.0 - i / 10]) for i in range(self.rank_list_size)]
-            # self.propensity_para = [torch.tensor([1.3027]), torch.tensor([0.9432]), torch.tensor([0.7674]), torch.tensor([0.6427]), \
-            # torch.tensor([0.5234]), torch.tensor([0.4127]),
-            # torch.tensor([0.3166]), torch.tensor([0.2079]),
-            # torch.tensor([0.1255]), torch.tensor([0.1648])]
+            # self.propensity_para = [torch.tensor([1.0 - i/10]) for i in range(self.rank_list_size)]
+            self.propensity_para = [torch.tensor([0.0]) for i in range(self.rank_list_size)]
         self.model = self.create_model(self.feature_size)
         if self.is_cuda_avail:
             self.model = self.model.to(device=self.cuda)
             #self.propensity_model = self.propensity_model.to(device=self.cuda)
             for i in range(len(self.propensity_para)):
-                self.propensity_para[i] = self.propensity_para[i].to(
-                    device=self.cuda)
+                self.propensity_para[i] = self.propensity_para[i].to(device=self.cuda)
                 self.propensity_para[i].requires_grad = True
-                # print(self.propensity_para[i].is_leaf)
+                #print(self.propensity_para[i].is_leaf)
         self.letor_features_name = "letor_features"
         self.letor_features = None
         self.docid_inputs_name = []  # a list of top documents
@@ -129,8 +134,7 @@ class DLA_PBM(BaseAlgorithm):
         if self.hparams.propensity_learning_rate < 0:
             self.propensity_learning_rate = float(self.hparams.learning_rate)
         else:
-            self.propensity_learning_rate = float(
-                self.hparams.propensity_learning_rate)
+            self.propensity_learning_rate = float(self.hparams.propensity_learning_rate)
         self.learning_rate = float(self.hparams.learning_rate)
 
         self.global_step = 0
@@ -169,8 +173,8 @@ class DLA_PBM(BaseAlgorithm):
         # opt_para = []
         # for i in range(len(self.propensity_para)):
         #     opt_para.append(self.optimizer_func([self.propensity_para[i]], self.propensity_learning_rate))
-        opt_ranker = self.optimizer_func(
-            self.model.parameters(), self.learning_rate)
+        opt_ranker = self.optimizer_func(self.model.parameters(), self.learning_rate)
+
 
         opt_ranker.zero_grad()
 
@@ -185,21 +189,17 @@ class DLA_PBM(BaseAlgorithm):
 
         if self.hparams.max_gradient_norm > 0:
             # nn.utils.clip_grad_norm_(self.propensity_model.parameters(), self.hparams.max_gradient_norm)
-            nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.hparams.max_gradient_norm)
+            nn.utils.clip_grad_norm_(self.model.parameters(), self.hparams.max_gradient_norm)
 
         # for i in range(len(self.propensity_para)):
         #     opt_para[i].step()
         opt_ranker.step()
         for i in range(len(self.propensity_para)):
-            if self.propensity_para[i].grad is not None:
-                self.propensity_para[i].data = self.propensity_para[i].data - \
-                    self.propensity_learning_rate * \
-                    self.propensity_para[i].grad
+            if self.propensity_para[i].grad != None:
+                self.propensity_para[i].data = self.propensity_para[i].data - self.propensity_learning_rate * self.propensity_para[i].grad
             #self.propensity_para[i] = self.propensity_para[i] + self.propensity_learning_rate * self.propensity_para[i].grad
         for i in range(len(self.propensity_para)):
-            if self.propensity_para[i].grad is not None:
+            if self.propensity_para[i].grad != None:
                 self.propensity_para[i].grad.zero_()
         # total_norm = 0
         #
@@ -228,10 +228,10 @@ class DLA_PBM(BaseAlgorithm):
         self.model.train()
         self.create_input_feed(input_feed, self.rank_list_size)
         train_output = self.ranking_model(self.model,
-                                          self.rank_list_size)
+            self.rank_list_size)
 
-        # train_output = torch.nan_to_num(train_output_raw)  # the output of
-        # the ranking model may contain nan
+        # train_output = torch.nan_to_num(train_output_raw)  # the output of the ranking model may contain nan
+
 
         # self.propensity_model.train()
         # propensity_labels = torch.transpose(self.labels,0,1)
@@ -241,26 +241,22 @@ class DLA_PBM(BaseAlgorithm):
         # print(self.propensity_para)
         self.propensity_parameter = []
         for i in range(len(self.propensity_para)):
-            self.propensity_parameter.append(
-                torch.sigmoid(self.propensity_para[i]))
-        # print(self.propensity_parameter)
+            self.propensity_parameter.append(torch.sigmoid(self.propensity_para[i]))
+        #print(self.propensity_parameter)
         labels = torch.unbind(self.labels, 0)
 
-        self.prop = [torch.cat(self.propensity_parameter)
-                     for _ in range(len(self.labels))]
+        self.prop = [torch.cat(self.propensity_parameter) for _ in range(len(self.labels))]
         self.propensity = torch.stack(self.prop, 0)
         # print(self.propensity)
         # print(self.propensity.shape)
 
         with torch.no_grad():
-            self.propensity_weights = torch.ones_like(
-                self.propensity) / self.propensity
+            self.propensity_weights = torch.ones_like(self.propensity) / self.propensity
             for i in range(len(labels)):
                 for j in range(self.rank_list_size):
-                    if (self.propensity_weights[i][j].data != 0.0):
-                        if (self.propensity_weights[i][j].data < 0.01):
-                            self.propensity_weights[i][j] = torch.tensor(
-                                [100.0]).to(device=self.cuda)
+                    if (self.propensity_weights[i][j].data!=0.0):
+                        if (self.propensity_weights[i][j].data > 100.0):
+                            self.propensity_weights[i][j] = torch.tensor([100.0]).to(device=self.cuda)
             # print(self.propensity_weights)
             # print(self.propensity_weights.shape)
 
@@ -286,10 +282,16 @@ class DLA_PBM(BaseAlgorithm):
             self.relevance_weights = self.get_normalized_weights(
                 self.logits_to_prob(train_output))
 
-        self.exam_loss = self.loss_func(
+        # self.exam_loss = self.loss_func(
+        #     self.propensity,
+        #     self.labels,
+        #     self.relevance_weights)
+
+        self.exam_loss = propensity_loss(
             self.propensity,
             self.labels,
             self.relevance_weights)
+
         # rw_list = torch.unbind(
         #     self.relevance_weights,
         #     dim=1)  # Compute propensity weights
@@ -329,12 +331,11 @@ class DLA_PBM(BaseAlgorithm):
         #                             weighted_metric_value, True)
         # loss, no outputs, summary.
         # print(" Loss %f at Global Step %d: " % (self.loss.item(),self.global_step))
-        print(" Loss %f at Global Step %d: " %
-              (self.loss.item(), self.global_step))
+        print(" Loss %f at Global Step %d: " % (self.loss.item(), self.global_step))
         self.train_summary['rank_loss'] = self.rank_loss.item()
         self.train_summary['exam_loss'] = self.exam_loss.item()
         self.train_summary['loss'] = self.loss.item()
-        self.global_step += 1
+        self.global_step+=1
         return self.loss, None, self.train_summary
 
     def validation(self, input_feed, is_online_simulation=False):
@@ -354,8 +355,7 @@ class DLA_PBM(BaseAlgorithm):
                 for topn, metric_value in zip(topn, metric_values):
                     self.create_summary('%s_%d' % (metric, topn),
                                         '%s_%d' % (metric, topn), metric_value.item(), False)
-        # no loss, outputs, summary.
-        return None, self.output, self.eval_summary
+        return None, self.output, self.eval_summary # no loss, outputs, summary.
 
     def get_normalized_weights(self, propensity):
         """Computes listwise softmax loss with propensity weighting.
@@ -374,12 +374,11 @@ class DLA_PBM(BaseAlgorithm):
             pw_list.append(pw_i)
         propensity_weights = torch.stack(pw_list, dim=1)
         if self.hparams.max_propensity_weight > 0:
-            self.clip_grad_value(propensity_weights, clip_value_min=0,
-                                 clip_value_max=self.hparams.max_propensity_weight)
+            self.clip_grad_value(propensity_weights,clip_value_min=0,
+                clip_value_max=self.hparams.max_propensity_weight)
         return propensity_weights
 
-    def clip_grad_value(self, parameters, clip_value_min,
-                        clip_value_max) -> None:
+    def clip_grad_value(self, parameters, clip_value_min, clip_value_max) -> None:
         r"""Clips gradient of an iterable of parameters at specified value.
 
         Gradients are modified in-place.
