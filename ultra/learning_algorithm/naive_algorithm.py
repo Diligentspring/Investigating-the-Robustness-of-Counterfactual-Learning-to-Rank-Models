@@ -1,4 +1,4 @@
-"""The naive algorithm that directly trains ranking models with clicks.
+"""The navie algorithm that directly trains ranking models with clicks.
 
 """
 
@@ -15,7 +15,7 @@ import ultra.utils
 
 
 class NaiveAlgorithm(BaseAlgorithm):
-    """The naive algorithm that directly trains ranking models with input labels.
+    """The navie algorithm that directly trains ranking models with input labels.
 
     """
 
@@ -27,14 +27,14 @@ class NaiveAlgorithm(BaseAlgorithm):
             exp_settings: (dictionary) The dictionary containing the model settings.
             forward_only: Set true to conduct prediction only, false to conduct training.
         """
-        print('Build NaiveAlgorithm')
+        print('Build NavieAlgorithm')
 
         self.hparams = ultra.utils.hparams.HParams(
-            # learning_rate=0.05,                 # Learning rate.
+            #learning_rate=0.05,                 # Learning rate.
             learning_rate=exp_settings['ln'],
             max_gradient_norm=5.0,            # Clip gradients to this norm.
-            loss_func='softmax_cross_entropy',            # Select Loss function
-            # loss_func='sigmoid_loss',
+            # loss_func='softmax_cross_entropy',            # Select Loss function
+            loss_func='sigmoid_loss',
             # loss_func='pairwise_loss',
             # Set strength for L2 regularization.
             l2_loss=0.0,
@@ -72,11 +72,9 @@ class NaiveAlgorithm(BaseAlgorithm):
             self.docid_inputs_name.append("docid_input{0}".format(i))
             self.labels_name.append("label{0}".format(i))
 
-        self.optimizer_func = torch.optim.Adagrad(
-            self.model.parameters(), lr=self.learning_rate)
+        self.optimizer_func = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate)
         if self.hparams.grad_strategy == 'sgd':
-            self.optimizer_func = torch.optim.SGD(
-                self.model.parameters(), lr=self.learning_rate)
+            self.optimizer_func = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
 
     def train(self, input_feed):
         """Run a step of the model feeding the given inputs for training process.
@@ -99,14 +97,13 @@ class NaiveAlgorithm(BaseAlgorithm):
         # print('letor_features维度')
         # print(self.letor_features.shape)
 
-        # self.labels 256*10  self.docid_inputs 10*256  self.letor_features
-        # 2560*33
+        # self.labels 256*10  self.docid_inputs 10*256  self.letor_features 2560*33
 
         # Gradients and SGD update operation for training the model.
 
         train_output = self.ranking_model(self.model,
-                                          self.rank_list_size)  # 256*10
-        # train_output = torch.nan_to_num(train_output_raw) # the output of the ranking model may contain nan
+                                          self.rank_list_size)  #256*10
+        #train_output = torch.nan_to_num(train_output_raw) # the output of the ranking model may contain nan
         # print('train_output维度')
         # print(train_output.shape)
         train_labels = self.labels
@@ -136,8 +133,7 @@ class NaiveAlgorithm(BaseAlgorithm):
         self.opt_step(self.optimizer_func, params)
 
         nn.utils.clip_grad_value_(train_labels, 1)
-        print(" Loss %f at Global Step %d: " %
-              (self.loss.item(), self.global_step))
+        print(" Loss %f at Global Step %d: " % (self.loss.item(), self.global_step))
         self.train_summary['loss'] = self.loss.item()
         return self.loss.item(), None, self.train_summary
 
@@ -165,7 +161,7 @@ class NaiveAlgorithm(BaseAlgorithm):
                 topn = self.exp_settings['metrics_topn']
                 metric_values = ultra.utils.make_ranking_metric_fn(
                     metric, topn)(self.labels, pad_removed_output, None)
-                for topn, metric_value in zip(topn, metric_values):
+                for topn, metric_value in zip(topn,metric_values):
                     self.create_summary('%s_%d' % (metric, topn),
                                         '%s_%d' % (metric, topn), metric_value.item(), False)
         return None, self.output, self.eval_summary  # loss, outputs, summary.

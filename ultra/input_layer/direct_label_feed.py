@@ -73,7 +73,8 @@ class DirectLabelFeed(BaseInputFeed):
         return
 
     def prepare_true_labels_with_index_ULTRA(
-            self, data_set, index, docid_inputs, letor_features, labels, check_validation=True):
+            self, data_set, index, docid_inputs, letor_features, labels, initial_scores, check_validation=True,
+            need_initial_scores=False):
         i = index
         # Generate label list.
         # label_list = [
@@ -95,11 +96,18 @@ class DirectLabelFeed(BaseInputFeed):
         # docid_inputs.append(list([-1 if data_set.initial_list[i][x]
         #                           < 0 else base + x for x in range(self.rank_list_size)]))
         docid_inputs.append(list([-1 if data_set.initial_list[i][x]
-                                  == '-1' else base + x for x in range(self.rank_list_size)]))
+                                        == '-1' else base + x for x in range(self.rank_list_size)]))
         labels.append(label_list)
+        # print(data_set.initial_list[i])
+        # print(data_set.initial_scores[i])
+        # print(len(data_set.initial_scores))
+        # print(len(data_set.initial_list))
+        if need_initial_scores:
+            initial_scores.append(list([-np.inf if data_set.initial_list[i][x] == '-1'
+                                        else data_set.initial_scores[i][x] for x in range(self.rank_list_size)]))
         return
 
-    def get_batch(self, data_set, check_validation=False, data_format="ULTRA"):
+    def get_batch(self, data_set, check_validation=False, data_format="ULTRA", need_initial_scores=False):
         """Get a random batch of data, prepare for step. Typically used for training.
 
         To feed data in step(..) it must be a list of batch-major vectors, while
@@ -120,7 +128,7 @@ class DirectLabelFeed(BaseInputFeed):
             raise ValueError("Input ranklist length must be no less than the required list size,"
                              " %d != %d." % (len(data_set.initial_list[0]), self.rank_list_size))
         length = len(data_set.initial_list)
-        docid_inputs, letor_features, labels = [], [], []
+        docid_inputs, letor_features, labels, initial_scores = [], [], [], []
         rank_list_idxs = []
         for _ in range(self.batch_size):
             i = int(random.random() * length)
@@ -130,7 +138,8 @@ class DirectLabelFeed(BaseInputFeed):
                                                           docid_inputs, letor_features, labels, check_validation)
             else:
                 self.prepare_true_labels_with_index_ULTRA(data_set, i,
-                                                          docid_inputs, letor_features, labels, check_validation)
+                                                          docid_inputs, letor_features, labels, initial_scores,
+                                                          check_validation, need_initial_scores)
         local_batch_size = len(docid_inputs)
         letor_features_length = len(letor_features)
         for i in range(local_batch_size):
@@ -140,6 +149,8 @@ class DirectLabelFeed(BaseInputFeed):
 
         batch_docid_inputs = []
         batch_labels = []
+        if need_initial_scores:
+            batch_initial_scores = []
         for length_idx in range(self.rank_list_size):
             # Batch encoder inputs are just re-indexed docid_inputs.
             batch_docid_inputs.append(
@@ -150,12 +161,18 @@ class DirectLabelFeed(BaseInputFeed):
             batch_labels.append(
                 np.array([labels[batch_idx][length_idx]
                           for batch_idx in range(local_batch_size)], dtype=np.float32))
+            if need_initial_scores:
+                batch_initial_scores.append(
+                    np.array([initial_scores[batch_idx][length_idx]
+                              for batch_idx in range(local_batch_size)], dtype=np.float32))
         # Create input feed map
         input_feed = {}
         input_feed[self.model.letor_features_name] = np.array(letor_features)
         for l in range(self.rank_list_size):
             input_feed[self.model.docid_inputs_name[l]] = batch_docid_inputs[l]
             input_feed[self.model.labels_name[l]] = batch_labels[l]
+            if need_initial_scores:
+                input_feed[self.model.initial_scores_name[l]] = batch_initial_scores[l]
         # Create info_map to store other information
         info_map = {
             'rank_list_idxs': rank_list_idxs,

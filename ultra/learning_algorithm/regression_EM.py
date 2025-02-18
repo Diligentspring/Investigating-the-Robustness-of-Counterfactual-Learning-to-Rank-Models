@@ -17,7 +17,6 @@ from torch.utils.tensorboard import SummaryWriter
 from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
 import ultra.utils
 
-
 def get_bernoulli_sample(probs):
     """Conduct Bernoulli sampling according to a specific probability distribution.
 
@@ -29,11 +28,7 @@ def get_bernoulli_sample(probs):
 
         """
     if torch.cuda.is_available():
-        bernoulli_sample = torch.ceil(
-            probs -
-            torch.rand(
-                probs.shape,
-                device=torch.device('cuda')))
+        bernoulli_sample = torch.ceil(probs - torch.rand(probs.shape, device=torch.device('cuda')))
     else:
         bernoulli_sample = torch.ceil(probs - torch.rand(probs.shape))
     return bernoulli_sample
@@ -72,6 +67,7 @@ class RegressionEM(BaseAlgorithm):
         )
         print(exp_settings['learning_algorithm_hparams'])
 
+        self.regression_EM_label = True
         self.cuda = torch.device('cuda')
         self.is_cuda_avail = torch.cuda.is_available()
         self.writer = SummaryWriter()
@@ -96,7 +92,7 @@ class RegressionEM(BaseAlgorithm):
             self.docid_inputs_name.append("docid_input{0}".format(i))
             self.labels_name.append("label{0}".format(i))
         with torch.no_grad():
-            self.propensity = (torch.ones([1, self.rank_list_size]) * 0.9)
+            self.propensity = torch.ones([1, self.rank_list_size]) * 0.9
             if self.is_cuda_avail:
                 self.propensity = self.propensity.to(device=self.cuda)
         self.learning_rate = float(self.hparams.learning_rate)
@@ -105,12 +101,10 @@ class RegressionEM(BaseAlgorithm):
         if self.is_cuda_avail:
             self.sigmoid_prob_b = self.sigmoid_prob_b.to(device=self.cuda)
         # Select optimizer
-        self.optimizer_func = torch.optim.Adagrad(
-            self.model.parameters(), lr=self.hparams.learning_rate)
+        self.optimizer_func = torch.optim.Adagrad(self.model.parameters(), lr=self.hparams.learning_rate)
         # tf.train.AdagradOptimizer
         if self.hparams.grad_strategy == 'sgd':
-            self.optimizer_func = torch.optim.SGD(
-                self.model.parameters(), lr=self.hparams.learning_rate)
+            self.optimizer_func = torch.optim.SGD(self.model.parameters(), lr=self.hparams.learning_rate)
 
     def train(self, input_feed):
         """Run a step of the model feeding the given inputs for training process.
@@ -141,14 +135,14 @@ class RegressionEM(BaseAlgorithm):
         # reshape from [rank_list_size, ?] to [?, rank_list_size]
         reshaped_train_labels = self.labels
         p_e1_r0_c0 = self.propensity * \
-            (1 - gamma) / (1 - self.propensity * gamma)
+                     (1 - gamma) / (1 - self.propensity * gamma)
         p_e0_r1_c0 = (1 - self.propensity) * gamma / \
                      (1 - self.propensity * gamma)
         # p_e0_r0_c0 = (1 - self.propensity) * (1 - gamma) / \
         #              (1 - self.propensity * gamma)
         # p_e1 = p_e1_r0_c0 + p_e1_r1_c1
         p_r1 = reshaped_train_labels + \
-            (1 - reshaped_train_labels) * p_e0_r1_c0
+               (1 - reshaped_train_labels) * p_e0_r1_c0
 
         # Get Bernoulli samples and compute rank loss
         self.ranker_labels = get_bernoulli_sample(p_r1)
@@ -157,7 +151,7 @@ class RegressionEM(BaseAlgorithm):
         # criterion = torch.nn.BCEWithLogitsLoss(reduction="none")
         criterion = torch.nn.BCEWithLogitsLoss()
 
-        self.loss = criterion(train_output, self.ranker_labels)
+        self.loss = criterion(train_output,self.ranker_labels)
         # record additional positive instance from sampling
         # labels_split_size = int(self.ranker_labels.shape[1] / self.rank_list_size)
         # split_ranker_labels = torch.split(
@@ -165,9 +159,10 @@ class RegressionEM(BaseAlgorithm):
         # for i in range(self.rank_list_size):
         #     additional_postive_instance = (torch.sum(split_ranker_labels[i]) - torch.sum(
         #         train_labels[i])) / (torch.sum(torch.ones_like(train_labels[i])) - torch.sum(train_labels[i]))
-        # self.create_summary('Additional pseudo clicks %d' %i,
-        #                     'Additional pseudo clicks %d at global step %d' % (i, self.global_step),
-        #                     additional_postive_instance, True)
+            # self.create_summary('Additional pseudo clicks %d' %i,
+            #                     'Additional pseudo clicks %d at global step %d' % (i, self.global_step),
+            #                     additional_postive_instance, True)
+
 
         params = self.model.parameters()
         if self.hparams.l2_loss > 0:
@@ -189,15 +184,16 @@ class RegressionEM(BaseAlgorithm):
         # Conduct maximization step
         with torch.no_grad():
             self.propensity = (1 - self.hparams.EM_step_size) * self.propensity + self.hparams.EM_step_size * torch.mean(
-                reshaped_train_labels + (1 - reshaped_train_labels) * p_e1_r0_c0, dim=0, keepdim=True)
+        reshaped_train_labels + (1 - reshaped_train_labels) * p_e1_r0_c0, dim=0, keepdim=True)
         self.update_propensity_op = self.propensity
         self.propensity_weights = 1.0 / self.propensity
+
 
         self.global_step += 1
         print('Loss %f at global step %d' % (self.loss, self.global_step))
         return self.loss, None, self.train_summary
 
-    def validation(self, input_feed, is_online_simulation=False):
+    def validation(self, input_feed, is_online_simulation= False):
         """Run a step of the model feeding the given inputs for validating process.
 
         Args:
@@ -212,7 +208,7 @@ class RegressionEM(BaseAlgorithm):
         self.create_input_feed(input_feed, self.max_candidate_num)
         with torch.no_grad():
             self.output = self.ranking_model(self.model,
-                                             self.max_candidate_num)
+                self.max_candidate_num)
         if not is_online_simulation:
             pad_removed_output = self.remove_padding_for_metric_eval(
                 self.docid_inputs, self.output)

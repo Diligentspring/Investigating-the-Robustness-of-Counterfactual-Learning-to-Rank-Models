@@ -29,6 +29,14 @@ from ultra.learning_algorithm.prs_rank import PRSrank
 from ultra.learning_algorithm.ips_pbm import IPS_PBM
 from ultra.learning_algorithm.ips_dcm import IPS_DCM
 from ultra.learning_algorithm.naive_algorithm import NaiveAlgorithm
+from ultra.learning_algorithm.naive_algorithm_pair import NaiveAlgorithm_pair
+from ultra.learning_algorithm.naive_algorithm_softmax import NaiveAlgorithm_softmax
+from ultra.learning_algorithm.regression_EM import RegressionEM
+from ultra.learning_algorithm.ips_pbm_regression import IPS_PBM_regression
+from ultra.learning_algorithm.prs_rankregression import PRSrank_regression
+from ultra.learning_algorithm.prs_rank_dcm import PRSrank_DCM
+from ultra.learning_algorithm.dla_iobm import DLA_IOBM
+from ultra.learning_algorithm.upe_rank import UPE
 
 # rank list size should be read from data
 parser = argparse.ArgumentParser(description='Pipeline commandline argument')
@@ -179,6 +187,22 @@ def train(exp_settings):
         model = PRSrank(train_set, exp_settings)
     elif CLTR_model == 'NaiveAlgorithm':
         model = NaiveAlgorithm(train_set, exp_settings)
+    elif CLTR_model == 'NaiveAlgorithm_pair':
+        model = NaiveAlgorithm_pair(train_set, exp_settings)
+    elif CLTR_model == 'NaiveAlgorithm_softmax':
+        model = NaiveAlgorithm_softmax(train_set, exp_settings)
+    elif CLTR_model == 'Regression_EM':
+        model = RegressionEM(train_set, exp_settings)
+    elif CLTR_model == 'IPS_PBM_regression':
+        model = IPS_PBM_regression(train_set, exp_settings)
+    elif CLTR_model == 'PRSrank_regression':
+        model = PRSrank_regression(train_set, exp_settings)
+    elif CLTR_model == 'PRSrank_DCM':
+        model = PRSrank_DCM(train_set, exp_settings)
+    elif CLTR_model == 'DLA_IOBM':
+        model = DLA_IOBM(train_set, exp_settings)
+    elif CLTR_model == 'UPE':
+        model = UPE(train_set, exp_settings)
     # model.print_info()
 
     # Create data feed
@@ -211,7 +235,12 @@ def train(exp_settings):
     while True:
         # Get a batch and make a step.
         start_time= time.time()
-        input_feed, info_map = train_input_feed.get_batch(train_set, check_validation=True, data_format=args.data_format)
+        if CLTR_model == 'UPE':
+            input_feed, info_map = train_input_feed.get_batch(train_set, check_validation=True,
+                                                              data_format=args.data_format, need_initial_scores=True)
+        else:
+            input_feed, info_map = train_input_feed.get_batch(train_set, check_validation=True,
+                                                              data_format=args.data_format)
 
         #print(input_feed)
         #print(info_map)
@@ -232,14 +261,6 @@ def train(exp_settings):
                   "%.4f" % (model.global_step, model.learning_rate,
                             step_time, loss))
             previous_losses.append(loss)
-
-            # parafile = open(args.model_dir+'/para.txt', 'a')
-            # parafile.write('current_step:'+str(current_step)+'\n')
-            # for i in range(len(model.propensity_parameter)):
-            #     parafile.write(str(model.propensity_parameter[i].data)+' ')
-            #     if i%10 ==9:
-            #         parafile.write('\n')
-            # parafile.close()
 
             # Validate model
             def validate_model(data_set, data_input_feed):

@@ -10,53 +10,154 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import torch.nn.functional as F
 import torch.nn as nn
 import torch
 from torch.utils.tensorboard import SummaryWriter
-
 from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+from ultra.learning_algorithm.base_propensity_model import BasePropensityModel
 import ultra.utils
-
 import torch.autograd
+import numpy as np
 
-def sigmoid_prob(logits):
-    return torch.sigmoid(logits - torch.mean(logits, -1, keepdim=True))
 
-class DenoisingNet(nn.Module):
-    def __init__(self, input_vec_size):
-        super(DenoisingNet, self).__init__()
-        self.linear_layer = nn.Linear(input_vec_size, 1)
-        self.elu_layer = nn.ELU()
-        self.propensity_net = nn.Sequential(self.linear_layer, self.elu_layer)
-        self.list_size = input_vec_size
+# def sigmoid_prob(logits):
+#     return torch.sigmoid(logits - torch.mean(logits, -1, keepdim=True))
+#
+# class DenoisingNet(nn.Module):
+#     def __init__(self, input_vec_size):
+#         super(DenoisingNet, self).__init__()
+#         self.linear_layer = nn.Linear(input_vec_size, 1)
+#         self.elu_layer = nn.ELU()
+#         self.propensity_net = nn.Sequential(self.linear_layer, self.elu_layer)
+#         self.list_size = input_vec_size
+#
+#     def forward(self, input_list):
+#         output_propensity_list = []
+#         for i in range(self.list_size):
+#             # Add position information (one-hot vector)
+#             click_feature = [
+#                 torch.unsqueeze(
+#                     torch.zeros_like(
+#                         input_list[i]), -1) for _ in range(self.list_size)]
+#             click_feature[i] = torch.unsqueeze(
+#                 torch.ones_like(input_list[i]), -1)
+#             # Predict propensity with a simple network
+#             # print(torch.cat(click_feature, 1).shape) 256*10
+#             output_propensity_list.append(
+#                 self.propensity_net(
+#                     torch.cat(
+#                         click_feature, 1)))
+#         return torch.cat(output_propensity_list, 1) #256*10，有负数
+#
+# class PropensityModel_logit(nn.Module):
+#     def __init__(self, list_size):
+#         super(PropensityModel_logit, self).__init__()
+#         self.IOBM_model = nn.Parameter(torch.ones(1, list_size))
+#
+#     def forward(self):
+#         return self.IOBM_model  # (1, T)
 
-    def forward(self, input_list):
-        output_propensity_list = []
-        for i in range(self.list_size):
-            # Add position information (one-hot vector)
-            click_feature = [
-                torch.unsqueeze(
-                    torch.zeros_like(
-                        input_list[i]), -1) for _ in range(self.list_size)]
-            click_feature[i] = torch.unsqueeze(
-                torch.ones_like(input_list[i]), -1)
-            # Predict propensity with a simple network
-            # print(torch.cat(click_feature, 1).shape) 256*10
-            output_propensity_list.append(
-                self.propensity_net(
-                    torch.cat(
-                        click_feature, 1)))
-        return torch.cat(output_propensity_list, 1) #256*10，有负数
+class IOBM(nn.Module):
 
-class PropensityModel_logit(nn.Module):
-    def __init__(self, list_size):
-        super(PropensityModel_logit, self).__init__()
-        self._propensity_model_logit = nn.Parameter(torch.zeros(1, list_size))
+    def __init__(self, feature_size, rank_list_size, **kwargs):
+        super(IOBM, self).__init__()
+        print("Propensity: use IOBM")
 
-    def forward(self):
-        return self._propensity_model_logit  # (1, T)
+        self.hparams = {
+            "activation": "tanh",
+            "units": 8,
+            "embedding_size": 4,
+            "position_embedding_size": 4,
+            "bidirection": True
+        }
 
-class DLA_DCM(BaseAlgorithm):
+        print("IOBM params: " + str(self.hparams))
+
+        self.position_embedding = nn.Embedding(rank_list_size, self.hparams["position_embedding_size"])
+        self.click_label_embedding = nn.Embedding(2, self.hparams["embedding_size"])
+        self.lstm = nn.LSTM(input_size=self.hparams["position_embedding_size"] + self.hparams["embedding_size"],
+                            hidden_size=self.hparams["units"],
+                            batch_first=True)
+        self.dense = nn.Linear(feature_size + self.hparams["position_embedding_size"] + self.hparams["embedding_size"], self.hparams["position_embedding_size"] + self.hparams["embedding_size"])
+        self.dense_1 = nn.Linear(feature_size + self.hparams["units"] * 2, self.hparams["units"] * 2)
+        self.dense_2 = nn.Linear(self.hparams["units"] * 2, 1)
+
+    def lstm_layer(self, inpt):
+        x, _ = self.lstm(inpt)
+        return x
+
+    def additive_attention(self, context, sequence):
+        x = torch.cat([context, sequence], dim=-1)  # (B, T, C1 + C2)
+        C2 = sequence.size(-1)
+        if C2 == self.hparams["position_embedding_size"] + self.hparams["embedding_size"]:
+            x = torch.tanh(self.dense(x))  # (B, T, C2)
+        else:
+            x = torch.tanh(self.dense_1(x))  # (B, T, C2)
+        x = F.softmax(x, dim=-1)  # (B, T, C2)
+        x = x * C2
+        # print("additive_attention: %s vs %s => %s" % (context.size(), sequence.size(), x.size()))
+        return x, x * sequence
+
+    def forward(self, click_label, letor_features):
+        list_size = click_label.size(1)
+        batch_size = click_label.size(0)
+        inputs = []
+
+        # context
+        with torch.no_grad():
+            # context = torch.mean(torch.stack(learning_model.context_embedding), dim=0)  # (B, T, C)
+            context = torch.mean(letor_features, dim=1, keepdim=True)  # (B, 1, C)
+            context_dim = context.size(-1)
+            # print("context dim: " + str(context_dim))
+            context = context.repeat(1, list_size, 1)  # (B, T, C)
+            context = context.to(torch.float32)
+
+        # position embedding
+        position = torch.arange(list_size, device=click_label.device).unsqueeze(0).unsqueeze(-1)  # (1, T, 1)
+        position = self.position_embedding(position).squeeze(2)  # (1, T, E)
+        position = position.repeat(batch_size, 1, 1)  # (B, T, E)
+        inputs.append(position.float())
+
+        # click label embedding
+        click_label = click_label.unsqueeze(-1)  # (B, T, 1)
+        if self.hparams["embedding_size"] != 0:
+            click_label = self.click_label_embedding(click_label.long()).squeeze(2)  # (B, T, E)
+        else:
+            click_label = click_label * 2 - 1
+        inputs.append(click_label.float())
+
+        x = torch.cat(inputs, dim=-1)  # (B, T, C + E)
+
+        # print(x.shape)
+        # print(context.shape)
+        #
+        # print(context.dtype)
+        # print(x.dtype)
+
+        # attention
+        att_x, x = self.additive_attention(context, x)
+        l1 = self.hparams["position_embedding_size"]
+        # l2 = l1 + self.hparams["embedding_size"]
+        # l3 = l2 + 1
+
+        # shift
+        x = x.unbind(dim=1)
+        x = [torch.zeros_like(x[0])] + list(x) + [torch.zeros_like(x[0])]
+        forward = torch.stack(x[:-2], dim=1)
+        p = self.lstm_layer(forward)
+
+
+        backward = torch.stack(x[-1:1:-1], dim=1)
+        q = self.lstm_layer(backward)
+        q = torch.flip(q, dims=[1])
+        x = torch.cat([p, q], dim=-1)
+        att_y, x = self.additive_attention(context, x)
+        y = self.dense_2(x).squeeze(-1)
+
+        return y
+
+class DLA_IOBM(BaseAlgorithm):
     """The Dual Learning Algorithm for unbiased learning to rank.
 
     This class implements the Dual Learning Algorithm (DLA) based on the input layer
@@ -73,7 +174,7 @@ class DLA_DCM(BaseAlgorithm):
             data_set: (Raw_data) The dataset used to build the input layer.
             exp_settings: (dictionary) The dictionary containing the model settings.
         """
-        print('Build DLADCM')
+        print('Build DLA_IOBM')
 
         self.hparams = ultra.utils.hparams.HParams(
             # learning_rate=0.05,                 # Learning rate.
@@ -82,7 +183,6 @@ class DLA_DCM(BaseAlgorithm):
             loss_func='softmax_loss',            # Select Loss function
             # the function used to convert logits to probability distributions
             logits_to_prob='softmax',
-            # logits_to_prob='sigmoid',
             # The learning rate for ranker (-1 means same with learning_rate).
             propensity_learning_rate=-1,
             ranker_loss_weight=1.0,            # Set the weight of unbiased ranking loss
@@ -112,10 +212,10 @@ class DLA_DCM(BaseAlgorithm):
             # self.propensity_para = [torch.tensor([0.0]) for i in range(self.rank_list_size)]
         self.model = self.create_model(self.feature_size)
 
-        self.propensity_model = PropensityModel_logit(self.rank_list_size)
+        self.IOBM_model = IOBM(self.feature_size, self.rank_list_size)
         if self.is_cuda_avail:
             self.model = self.model.to(device=self.cuda)
-            self.propensity_model = self.propensity_model.to(device=self.cuda)
+            self.IOBM_model = self.IOBM_model.to(device=self.cuda)
             # for i in range(len(self.propensity_para)):
             #     self.propensity_para[i] = self.propensity_para[i].to(device=self.cuda)
             #     self.propensity_para[i].requires_grad = True
@@ -157,10 +257,20 @@ class DLA_DCM(BaseAlgorithm):
         else:  # softmax loss without weighting
             self.loss_func = self.softmax_loss
 
+    def get_input_feature_list(self, input_id_list):
+        """Copy from base_algorithm.get_ranking_scores()
+        """
+        PAD_embed = np.zeros((1, self.feature_size), dtype=np.float32)
+        letor_features = np.concatenate((self.letor_features, PAD_embed), axis=0)
+        input_feature_list = []
+        for i in range(len(input_id_list)):
+            input_feature_list.append(torch.from_numpy(np.take(letor_features, input_id_list[i], 0)))
+        return input_feature_list
+
     def separate_gradient_update(self):
         # denoise_params = self.propensity_model.parameters()
         ranking_model_params = self.model.parameters()
-        propensity_params = self.propensity_model.parameters()
+        propensity_params = self.IOBM_model.parameters()
         # Select optimizer
 
         if self.hparams.l2_loss > 0:
@@ -175,7 +285,7 @@ class DLA_DCM(BaseAlgorithm):
         # for i in range(len(self.propensity_para)):
         #     opt_para.append(self.optimizer_func([self.propensity_para[i]], self.propensity_learning_rate))
         opt_ranker = self.optimizer_func(self.model.parameters(), self.learning_rate)
-        opt_propensity = self.optimizer_func(self.propensity_model.parameters(), self.propensity_learning_rate)
+        opt_propensity = self.optimizer_func(self.IOBM_model.parameters(), self.propensity_learning_rate)
 
         opt_ranker.zero_grad()
         opt_propensity.zero_grad()
@@ -190,7 +300,7 @@ class DLA_DCM(BaseAlgorithm):
         #     print(self.propensity_para[i].grad)
 
         if self.hparams.max_gradient_norm > 0:
-            nn.utils.clip_grad_norm_(self.propensity_model.parameters(), self.hparams.max_gradient_norm)
+            nn.utils.clip_grad_norm_(self.IOBM_model.parameters(), self.hparams.max_gradient_norm)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.hparams.max_gradient_norm)
 
         # for i in range(len(self.propensity_para)):
@@ -229,55 +339,59 @@ class DLA_DCM(BaseAlgorithm):
         # Build model
         self.rank_list_size = self.exp_settings['selection_bias_cutoff']
         self.model.train()
-        self.propensity_model.train()
+        self.IOBM_model.train()
         self.create_input_feed(input_feed, self.rank_list_size)
         train_output = self.ranking_model(self.model,
             self.rank_list_size)
 
+
+        input_feature_list = self.get_input_feature_list(np.transpose(self.docid_inputs[:self.rank_list_size]))
+        # print(len(input_feature_list))
+        lector_features = torch.stack(input_feature_list, dim=0).to(device=self.cuda)
+        # print(lector_features.shape)
+
         # train_output = torch.nan_to_num(train_output_raw)  # the output of the ranking model may contain nan
 
-        # batch_size = len(self.labels)
 
-        self.propensity_para = torch.squeeze(self.propensity_model(), dim=0)
-        # self.propensity_parameters = torch.sigmoid(self.propensity_para)
+        # self.propensity_model.train()
+        # propensity_labels = torch.transpose(self.labels,0,1)
+
+        # self.propensity = self.propensity_model()
+
+        # print(self.propensity_para)
+        # self.propensity_parameter = []
+        # for i in range(len(self.propensity_para)):
+        #     self.propensity_parameter.append(torch.sigmoid(self.propensity_para[i]))
+        #print(self.propensity_parameter)
+        # labels = torch.unbind(self.labels, 0)
+
+        # self.prop = [torch.cat(self.propensity_parameter) for _ in range(len(self.labels))]
+        # self.propensity = torch.stack(self.prop, 0)
+        # print(self.propensity)
+        # print(self.propensity.shape)
+
+        # propensity_values = torch.squeeze(self.IOBM_model(), dim=0)
+        #
+        # positions = [torch.tensor(input_feed["positions"][i]).to(device=self.cuda) for i in
+        #              range(len(input_feed["positions"]))]
+        # propensities = []
+        # for i in range(len(positions)):
+        #     propensities.append(torch.gather(propensity_values, 0, positions[i]))
+        #
+        # self.propensity = torch.stack(propensities, dim=0)
+
+        batch_size = len(self.labels)
+
+        self.propensity = self.IOBM_model(self.labels, lector_features)
+        # .repeat(batch_size, 1)
 
 
         # with torch.no_grad():
         #     self.propensity_weights = self.get_normalized_weights(
         #         self.logits_to_prob(self.propensity))
 
-        labels = torch.unbind(self.labels, 0)
-        # print(labels)
-        self.propensity = torch.ones_like(self.labels).to(device=self.cuda)
-
-        const_one = torch.tensor(5).to(device=self.cuda)
-        for i in range(len(labels)):
-            cont_index = -1
-            # cont = self.propensity_parameters[0]
-            for j in range(self.rank_list_size):
-                if cont_index == -1:
-                    self.propensity[i][j] = const_one
-                else:
-                    self.propensity[i][j] = self.propensity_para[cont_index]
-                if int(labels[i][j].data) == 1:
-                    cont_index = j
-                    # if j < self.rank_list_size - 1:
-                    #     cont = self.propensity_parameters[j+1]
-
         with torch.no_grad():
             self.propensity_weights = torch.ones_like(self.propensity).to(device=self.cuda) / torch.sigmoid(self.propensity)
-
-        # with torch.no_grad():
-        #     self.propensity_weights = self.propensity + torch.zeros_like(self.propensity)
-        #     for i in range(len(labels)):
-        #         for j in range(self.rank_list_size):
-        #             if (self.propensity_weights[i][j].data!=0.0):
-        #                 if (self.propensity_weights[i][j].data > 0.01):
-        #                     self.propensity_weights[i][j] = torch.tensor([1.0]).to(device=self.cuda) / \
-        #                                                     self.propensity_weights[i][j]
-        #                 else:
-        #                     self.propensity_weights[i][j] = torch.tensor([100.0]).to(device=self.cuda)
-        #     self.propensity_weights = torch.nan_to_num(self.propensity_weights)
 
         self.rank_loss = self.loss_func(
             train_output, self.labels, self.propensity_weights)
@@ -301,19 +415,6 @@ class DLA_DCM(BaseAlgorithm):
             self.propensity,
             self.labels,
             self.relevance_weights)
-
-        # weighted_labels = (self.labels + 0.0000001) * self.relevance_weights
-        # # label_dis = weighted_labels / \
-        # #     torch.sum(weighted_labels, 1, keepdim=True)
-        # # label_dis = torch.nan_to_num(label_dis)
-        # # output_rem_nan = torch.nan_to_num(output)
-        # # exam_loss = softmax_cross_entropy_with_logits(
-        # #     logits = output, labels = label_dis)* torch.sum(weighted_labels, 1)
-        # exam_loss = (- self.labels * torch.log(self.propensity) - (1 - self.labels) * torch.log(1 - self.propensity)) * self.relevance_weights
-        # self.exam_loss = torch.sum(exam_loss) / torch.sum(weighted_labels)
-        # # return torch.sum(loss) / torch.sum(weighted_labels)
-
-
         # rw_list = torch.unbind(
         #     self.relevance_weights,
         #     dim=1)  # Compute propensity weights
@@ -418,87 +519,3 @@ class DLA_DCM(BaseAlgorithm):
         clip_value_max = float(clip_value_max)
         for p in filter(lambda p: p.grad is not None, parameters):
             p.grad.data.clamp_(min=clip_value_min, max=clip_value_max)
-
-    '''
-    def click_weighted_softmax_cross_entropy_loss(
-            self, output, labels, propensity_weights, name=None):
-        """Computes listwise softmax loss with propensity weighting.
-
-        Args:
-            output: (tf.Tensor) A tensor with shape [batch_size, list_size]. Each value is
-            the ranking score of the corresponding example.
-            labels: (tf.Tensor) A tensor of the same shape as `output`. A value >= 1 means a
-            relevant example.
-            propensity_weights: (tf.Tensor) A tensor of the same shape as `output` containing the weight of each element.
-            name: A string used as the name for this variable scope.
-
-        Returns:
-            (tf.Tensor) A single value tensor containing the loss.
-        """
-        loss = None
-        with tf.name_scope(name, "click_softmax_cross_entropy", [output]):
-            label_dis = labels * propensity_weights / \
-                tf.reduce_sum(labels * propensity_weights, 1, keep_dims=True)
-            loss = tf.nn.softmax_cross_entropy_with_logits(
-                logits=output, labels=label_dis) * tf.reduce_sum(labels * propensity_weights, 1)
-        return tf.reduce_sum(loss) / tf.reduce_sum(labels * propensity_weights)
-
-    def click_weighted_pairwise_loss(
-            self, output, labels, propensity_weights, name=None):
-        """Computes pairwise entropy loss with propensity weighting.
-
-        Args:
-            output: (tf.Tensor) A tensor with shape [batch_size, list_size]. Each value is
-            the ranking score of the corresponding example.
-            labels: (tf.Tensor) A tensor of the same shape as `output`. A value >= 1 means a
-                relevant example.
-            propensity_weights: (tf.Tensor) A tensor of the same shape as `output` containing the weight of each element.
-            name: A string used as the name for this variable scope.
-
-        Returns:
-            (tf.Tensor) A single value tensor containing the loss.
-            (tf.Tensor) A tensor containing the propensity weights.
-        """
-        loss = None
-        with tf.name_scope(name, "click_weighted_pairwise_loss", [output]):
-            sliced_output = tf.unstack(output, axis=1)
-            sliced_label = tf.unstack(labels, axis=1)
-            sliced_propensity = tf.unstack(propensity_weights, axis=1)
-            for i in range(len(sliced_output)):
-                for j in range(i + 1, len(sliced_output)):
-                    cur_label_weight = tf.math.sign(
-                        sliced_label[i] - sliced_label[j])
-                    cur_propensity = sliced_propensity[i] * \
-                        sliced_label[i] + \
-                        sliced_propensity[j] * sliced_label[j]
-                    cur_pair_loss = - \
-                        tf.exp(
-                            sliced_output[i]) / (tf.exp(sliced_output[i]) + tf.exp(sliced_output[j]))
-                    if loss is None:
-                        loss = cur_label_weight * cur_pair_loss * cur_propensity
-                    loss += cur_label_weight * cur_pair_loss * cur_propensity
-        batch_size = tf.shape(labels[0])[0]
-        # / (tf.reduce_sum(propensity_weights)+1)
-        return tf.reduce_sum(loss) / tf.cast(batch_size, dtypes.float32)
-
-    def click_weighted_log_loss(
-            self, output, labels, propensity_weights, name=None):
-        """Computes pointwise sigmoid loss with propensity weighting.
-
-        Args:
-            output: (tf.Tensor) A tensor with shape [batch_size, list_size]. Each value is
-            the ranking score of the corresponding example.
-            labels: (tf.Tensor) A tensor of the same shape as `output`. A value >= 1 means a
-            relevant example.
-            propensity_weights: (tf.Tensor) A tensor of the same shape as `output` containing the weight of each element.
-            name: A string used as the name for this variable scope.
-
-        Returns:
-            (tf.Tensor) A single value tensor containing the loss.
-        """
-        loss = None
-        with tf.name_scope(name, "click_weighted_log_loss", [output]):
-            click_prob = tf.sigmoid(output)
-            loss = tf.losses.log_loss(labels, click_prob, propensity_weights)
-        return loss
-        '''
