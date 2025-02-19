@@ -346,11 +346,8 @@ def test(exp_settings):
 
     exp_settings['ln'] = args.ln
     # Create model and load parameters.
-    # model = create_model(exp_settings, test_set)
     model = DLA_PBM(test_set, exp_settings)
-    # model = PRSrank_modify(test_set, exp_settings)
 
-    #checkpoint_path = os.path.join(args.model_dir+'_256_0.1', "%s.ckpt7900" % exp_settings['learning_algorithm'])
     checkpoint_path = args.model_dir
     ckpt = torch.load(checkpoint_path)
     print("Reading model parameters from %s" % checkpoint_path)
@@ -395,21 +392,9 @@ def test(exp_settings):
         scores = rerank_scores[i]
         rerank_lists.append(sorted(range(len(scores)), key=lambda k: scores[k], reverse=True))
 
-    # print(rerank_scores)
-    # print(len(rerank_scores))
-    # print(rerank_lists)
-    # print(summary_list)
-
-    # classify_dir = args.model_dir.strip('./').split('/')
-    #
-    # classify_file = open('classify_test/{}/{}/{}'.format(classify_dir[0], classify_dir[1], classify_dir[2]), 'w')
-    # for i in range(len(rerank_scores)):
-    #     for j in range(len(rerank_scores[i])):
-    #         classify_file.write(str(rerank_scores[i][j].item())+' ')
-    #     classify_file.write('\n')
-    # classify_file.close()
-
     classify_dir = args.model_dir + '_classify'
+    if not os.path.exists(classify_dir):
+        os.makedirs(classify_dir)
 
     classify_file = open(classify_dir, 'w')
     for i in range(len(rerank_scores)):

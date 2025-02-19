@@ -38,9 +38,9 @@ To convert the data to ULTRA form:
 python convert_to_ULTRA.py [DATA_PATH] [feature_lenth] [OUTPUT_PATH]
 ```
 
-### To utilize Plackett-Luce model to randomly generate initial ranking lists based on the relevance scores given by the ranker (e.g. 1% DNN)
+### To generate initial ranking lists based on the relevance scores given by the ranker (e.g. 1% DNN)
 ```
-python generate_init_list.py [ULTRA_DATA_PATH] [CLASSIFY_PATH] [weight] [OUTPUT_PATH]
+python generate_init_list.py [ULTRA_DATA_PATH] [CLASSIFY_PATH] [SESSION_NUM_PER_QUERY] [OUTPUT_PATH]
 ```
 
 ### To generate click data for initial ranking lists
