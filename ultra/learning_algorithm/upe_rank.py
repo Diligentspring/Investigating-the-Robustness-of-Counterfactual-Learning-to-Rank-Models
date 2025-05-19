@@ -103,7 +103,8 @@ class UPE(BaseAlgorithm):
         print("Build UPE")
 
         self.hparams = ultra.utils.hparams.HParams(
-            learning_rate=5e-3,             # Learning rate
+            # learning_rate=5e-3,             # Learning rate
+            learning_rate=exp_settings['ln'],
             max_gradient_norm=5.0,          # Clip gradients to this norm.
             loss_func='softmax_loss',       # Select Loss function
             logits_to_prob='softmax',       # the function used to convert logits to probability distributions

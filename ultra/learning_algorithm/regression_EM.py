@@ -59,7 +59,8 @@ class RegressionEM(BaseAlgorithm):
 
         self.hparams = ultra.utils.hparams.HParams(
             EM_step_size=0.05,                  # Step size for EM algorithm.
-            learning_rate=0.05,                 # Learning rate.
+            # learning_rate=0.05,                 # Learning rate.
+            learning_rate=exp_settings['ln'],
             max_gradient_norm=5.0,            # Clip gradients to this norm.
             # Set strength for L2 regularization.
             l2_loss=0.0,
